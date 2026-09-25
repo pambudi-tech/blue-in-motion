@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <meta name="theme-color" content="#fafaf9" />
+  <title>Blue, in motion — Chelsea home jersey timeline</title>
+  <link rel="stylesheet" href="style.css?v=12" />
+</head>
+<body>
+  <header><button id="play" aria-label="Putar transisi" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path id="play-icon" d="M9 6L18 12L9 18Z" /></svg></button></header>
+  <main>
+    <div class="stage">
+      <button id="garment" aria-label="Lihat bentuk jersey berikutnya"><img id="fallback" src="assets/chelsea-1998-v2.png" alt="Rekonstruksi jersey home Chelsea 1998/99" /><canvas id="jersey" aria-hidden="true"></canvas></button>
+      <p id="loading" role="status">Menyiapkan jersey…</p>
+    </div>
+    <section class="timeline" aria-label="Transisi bentuk jersey">
+      <div class="ruler-wrap"><svg id="ruler" viewBox="0 0 600 88" preserveAspectRatio="none" aria-hidden="true"></svg><input id="progress" type="range" min="0" max="6000" value="0" step="1" aria-label="Perubahan bentuk jersey" aria-valuetext="Chelsea home 1998/99" /></div>
+      <div class="stops"><button class="active" aria-pressed="true">1998/99</button><button aria-pressed="false">2004/05</button><button aria-pressed="false">2006/07</button><button aria-pressed="false">2011/12</button><button aria-pressed="false">2016/17</button><button aria-pressed="false">2020/21</button><button aria-pressed="false">2026/27</button></div>
+    </section>
+  </main>
+  <script src="motion.js?v=5"></script><script src="branding.js?v=12"></script><script src="app.js?v=44"></script>
+</body>
+</html>

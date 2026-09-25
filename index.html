@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <meta name="theme-color" content="#fafaf9" />
+  <title>Blue, in motion — Chelsea jersey study</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <header><a class="wordmark" href="./">Blue, in motion<span>CHELSEA · JERSEY STUDY 01</span></a><button id="play" aria-label="Putar transisi" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path id="play-icon" d="M9 6L18 12L9 18Z" /></svg></button></header>
+  <main>
+    <div class="stage">
+      <button id="garment" aria-label="Lihat bentuk jersey berikutnya"><img id="fallback" src="assets/jersey-study.png" alt="Studi jersey Chelsea biru dengan tekstur kain realistis" /><canvas id="jersey" aria-hidden="true"></canvas></button>
+      <p id="loading" role="status">Menyiapkan jersey…</p>
+    </div>
+    <div class="caption"><span id="state-title">Kerah bulat</span><span class="caption-dot">·</span><span id="state-detail">Potongan klasik</span></div>
+    <section class="timeline" aria-label="Transisi bentuk jersey">
+      <div class="ruler-wrap"><svg id="ruler" viewBox="0 0 600 88" preserveAspectRatio="none" aria-hidden="true"></svg><input id="progress" type="range" min="0" max="1000" value="0" step="1" aria-label="Perubahan bentuk jersey" aria-valuetext="Studi A, kerah bulat" /></div>
+      <div class="stops"><button id="start" class="active" aria-pressed="true"><span>01</span>Studi A</button><span id="percent" aria-hidden="true">0%</span><button id="end" aria-pressed="false"><span>02</span>Studi B</button></div>
+    </section>
+    <p class="hint">Geser perlahan. Perhatikan kerah, lengan, dan siluet.</p>
+  </main>
+  <footer><span>ROUND NECK <span class="arrow">↔</span> V-NECK</span><span>Konsep visual · bukan replika musim tertentu</span></footer>
+  <script src="app.js"></script>
+</body>
+</html>
