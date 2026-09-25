@@ -34,6 +34,13 @@
   function alignRulerEnds(){
     const svg=$('ruler').getBoundingClientRect();
     const labels=document.querySelector('.stops').getBoundingClientRect();
+    if(matchMedia('(max-width: 600px)').matches){
+      stops.forEach(button=>{button.style.width='';button.style.left='';button.style.top='';button.style.transform='';});
+      rulerMin=0;rulerMax=600;
+      lines.forEach((line,i)=>{const x=rulerMin+(rulerMax-rulerMin)*i/rulerTicks;line.setAttribute('x1',x);line.setAttribute('x2',x);line.classList.toggle('major',i%7===0);});
+      range.style.left='0';range.style.right='0';range.style.width='100%';
+      return;
+    }
     stops.forEach(button=>{button.style.width='auto';});
     const edge=Math.max(...stops.map(button=>button.getBoundingClientRect().width/2));
     stops.forEach((button,i)=>{
@@ -97,10 +104,23 @@
     else{directMove=false;phase=phaseAtPosition(value);}
     last=0;request();
   }
-  range.addEventListener('input',()=>move(Number(range.value)/1000,true));
+  let rangePointer=null,rangeDragged=false;
+  range.addEventListener('pointerdown',e=>{rangePointer=e.clientX;rangeDragged=false;});
+  range.addEventListener('pointermove',e=>{if(rangePointer!==null&&Math.abs(e.clientX-rangePointer)>3)rangeDragged=true;});
+  range.addEventListener('input',e=>{
+    if(rangePointer!==null){
+      if(rangeDragged)move(Number(range.value)/1000,true);
+      return;
+    }
+    move(Number(range.value)/1000,true);
+  });
   function snapToNearestYear(){move(Math.round(Number(range.value)/1000));}
-  range.addEventListener('change',snapToNearestYear);
-  range.addEventListener('pointerup',()=>requestAnimationFrame(snapToNearestYear));
+  range.addEventListener('pointerup',()=>{
+    const next=Math.round(Number(range.value)/1000);
+    if(!rangeDragged)move(next,false,Math.abs(next-value)>1);
+    else move(next);
+    rangePointer=null;rangeDragged=false;
+  });
   range.addEventListener('keyup',e=>{if(e.key.startsWith('Arrow'))snapToNearestYear();});
   stops.forEach((b,i)=>b.addEventListener('click',()=>move(i,false,Math.abs(i-value)>1)));
   play.addEventListener('click',()=>{if(ready){const wasPlaying=playing;setPlaying(!playing);if(wasPlaying)snapToNearestYear();}});

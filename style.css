@@ -15,3 +15,4 @@ header{left:auto;right:30px;top:24px}main{padding:70px 24px 50px;gap:0}.stage{wi
 @font-face{font-family:"Space Grotesk";src:url("./assets/SpaceGrotesk-Variable.woff2") format("woff2");font-style:normal;font-weight:300 700;font-display:swap}.stops button{font-family:"Space Grotesk",Arial,sans-serif}
 .stops{position:relative;height:38px;margin-top:13px}.stops button{position:absolute}
 .stops button{font-variant-numeric:tabular-nums;text-align:center;white-space:nowrap}@media(max-width:600px){.stops button{padding-inline:3px}}
+@media(max-width:600px){.stage{margin-bottom:17px}.stops{height:auto;display:flex;flex-wrap:wrap;justify-content:center;row-gap:8px;margin-top:29px}.stops button,.stops button:nth-child(2){position:static!important;left:auto!important;top:auto!important;transform:none!important;width:auto!important;flex:0 0 25%;justify-content:center;text-align:center;padding:9px 2px;font-size:14px;white-space:nowrap}.ruler-wrap,#progress{touch-action:pan-y}}
