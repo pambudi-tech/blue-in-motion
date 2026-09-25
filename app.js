@@ -1,104 +1,368 @@
 (() => {
   'use strict';
-  const $ = id => document.getElementById(id);
-  const canvas = $('jersey'), range = $('progress'), play = $('play');
-  const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
-  let value = 0, target = 0, playing = false, direction = 1, previous = 0;
-  let render = () => {}, framePending = false, ready = false;
-  const lines = [];
-  for (let i=0;i<=80;i++) {
+  const $=id=>document.getElementById(id);
+  const canvas=$('jersey'), range=$('progress'), play=$('play');
+  const seasons=[
+    {year:'1998/99',detail:'Umbro · Autoglass',construction:'Kerah lipat · panel raglan',src:'assets/chelsea-1998-v2.png'},
+    {year:'2004/05',detail:'Umbro · Fly Emirates',construction:'Kerah V · lengan set-in',src:'assets/chelsea-2004-v2.png'},
+    {year:'2006/07',detail:'Adidas · Samsung mobile',construction:'Kerah membulat · panel Teamgeist',src:'assets/chelsea-2006.png'},
+    {year:'2011/12',detail:'Adidas · Samsung',construction:'Kerah crew-neck · hoop tonal',src:'assets/chelsea-2011.png'},
+    {year:'2016/17',detail:'Adidas · Yokohama Tyres',construction:'Kerah V · singa tonal di depan · three stripes samping',src:'assets/chelsea-2016-v4.png'},
+    {year:'2020/21',detail:'Nike · Three',construction:'Kerah crew-neck · pola zigzag',src:'assets/chelsea-2020-v3.png'},
+    {year:'2026/27',detail:'Nike · lion crest',construction:'Kerah polo · crest jacquard besar · Bright Blue',src:'assets/chelsea-2026-v3.png'}
+  ];
+  let value=0,target=0,playing=false,direction=1,last=0,queued=false,ready=false,directMove=false,directStart=0,directElapsed=0;
+  let render=()=>{};
+  const stageDuration=0.6;
+  let phase=0,targetPhase=0;
+  // Each adjacent pair gets the same clock and symmetric easing, even when
+  // a click crosses several years. Scrubbing remains directly controlled.
+  function positionAtPhase(p){const i=Math.floor(p),t=p-i;return i+t*t*(3-2*t);}
+  function phaseAtPosition(p){
+    const i=Math.floor(p),t=p-i;
+    return t===0?p:i+.5-Math.sin(Math.asin(1-2*t)/3);
+  }
+  const reduced=matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const stops=[...document.querySelectorAll('.stops button')],segments=seasons.length-1,lines=[];
+  const rulerTicks=segments*14;
+  for(let i=0;i<=rulerTicks;i++){
     const line=document.createElementNS('http://www.w3.org/2000/svg','line');
-    line.setAttribute('x1',String(3+i*7.425));line.setAttribute('x2',String(3+i*7.425));line.setAttribute('y2','80');line.setAttribute('stroke-width','1');
+    line.setAttribute('x1',3+i*7.425);line.setAttribute('x2',3+i*7.425);line.setAttribute('y2',80);line.setAttribute('stroke-linecap','round');
     $('ruler').append(line);lines.push(line);
   }
-  function updateUI() {
-    const pct = Math.round(value*100);
-    range.value = String(Math.round(value*1000));
-    range.setAttribute('aria-valuetext',`${pct}% — ${pct<35?'kerah bulat':pct>65?'kerah V':'bentuk peralihan'}`);
-    $('percent').textContent = `${pct}%`;
-    $('state-title').textContent = pct<15?'Kerah bulat':pct>85?'Kerah V':'Bentuk dalam transisi';
-    $('state-detail').textContent = pct<15?'Potongan klasik':pct>85?'Potongan ramping':`${pct}% menuju Studi B`;
-    $('start').classList.toggle('active',pct<50);$('end').classList.toggle('active',pct>=50);
-    $('start').setAttribute('aria-pressed',String(pct===0));$('end').setAttribute('aria-pressed',String(pct===100));
-    lines.forEach((line,i)=>{
-      const d=i/80-value, emphasis=Math.exp(-d*d/0.045);
-      line.setAttribute('y1',String(80-(9+61*emphasis)));
-      line.setAttribute('stroke',Math.abs(d)<0.0064?'#224b91':`rgba(96,111,132,${0.14+0.28*emphasis})`);
-      line.setAttribute('stroke-width',Math.abs(d)<0.0064?'1.7':'1');
+  let rulerMin=3,rulerMax=597;
+  function alignRulerEnds(){
+    const svg=$('ruler').getBoundingClientRect();
+    const labels=document.querySelector('.stops').getBoundingClientRect();
+    stops.forEach(button=>{button.style.width='auto';});
+    const edge=Math.max(...stops.map(button=>button.getBoundingClientRect().width/2));
+    stops.forEach((button,i)=>{
+      button.style.width=`${edge*2}px`;
+      button.style.left=`${edge+(labels.width-2*edge)*i/segments}px`;
+      button.style.top='0';
+      button.style.transform='translateX(-50%)';
     });
+    const a=stops[0].getBoundingClientRect(),b=stops.at(-1).getBoundingClientRect();
+    const left=a.left+a.width/2-svg.left,right=b.left+b.width/2-svg.left;
+    rulerMin=left/svg.width*600;rulerMax=right/svg.width*600;
+    lines.forEach((line,i)=>{const x=rulerMin+(rulerMax-rulerMin)*i/rulerTicks;line.setAttribute('x1',x);line.setAttribute('x2',x);line.classList.toggle('major',i%7===0);});
+    range.style.left=left+'px';range.style.right='auto';range.style.width=(right-left)+'px';
   }
-  function requestFrame(){if(!framePending){framePending=true;requestAnimationFrame(tick);}}
-  function tick(time){
-    framePending=false;
-    const dt=previous?Math.min((time-previous)/1000,0.05):1/60;previous=time;
-    if(playing){target+=direction*dt/4.5;if(target>=1){target=1;direction=-1;}if(target<=0){target=0;direction=1;}value=target;}
-    else {value += (target-value)*(reduced?1:1-Math.exp(-dt*12));if(Math.abs(target-value)<0.0001)value=target;}
-    render(value);updateUI();
-    if(playing||value!==target)requestFrame();else previous=0;
+  alignRulerEnds();window.addEventListener('resize',alignRulerEnds);
+  document.fonts.ready.then(alignRulerEnds);
+  range.max=String(segments*1000);
+  const activeMarker=document.createElementNS('http://www.w3.org/2000/svg','line');
+  activeMarker.setAttribute('id','active-marker');activeMarker.setAttribute('y2','80');activeMarker.setAttribute('stroke','#234c93');activeMarker.setAttribute('stroke-width','1.8');activeMarker.setAttribute('stroke-linecap','round');$('ruler').append(activeMarker);
+  function ui(){
+    range.value=Math.round(value*1000);
+    const markerX=rulerMin+(value/segments)*(rulerMax-rulerMin);activeMarker.setAttribute('x1',markerX);activeMarker.setAttribute('x2',markerX);activeMarker.setAttribute('y1',10);
+    const i=Math.min(segments-1,Math.floor(value)),t=value-i,nearest=Math.max(0,Math.min(segments,Math.round(value))),atStop=Math.abs(value-nearest)<.002;
+    const active=seasons[nearest];
+    range.setAttribute('aria-valuetext',atStop?active.year+' '+active.detail:`${seasons[i].year} ke ${seasons[i+1].year}, ${Math.round(t*100)} persen`);
+    $('garment').setAttribute('aria-label',`Jersey Chelsea ${atStop?active.year:'dalam transisi'}. Klik untuk musim berikutnya.`);
+    stops.forEach((b,j)=>{b.classList.toggle('active',j===nearest);b.setAttribute('aria-pressed',String(atStop&&j===nearest));});
+    lines.forEach((l,j)=>{const d=j/rulerTicks-value/segments,h=Math.exp(-d*d/.025),major=j%7===0;l.setAttribute('y1',80-9-61*h);l.setAttribute('stroke',major?'rgba(96,111,132,.32)':`rgba(96,111,132,${.19+.12*h})`);l.setAttribute('stroke-width',major?'1.8':'1.1');});
   }
-  function setPlaying(next){playing=next;play.setAttribute('aria-pressed',String(next));play.setAttribute('aria-label',next?'Jeda transisi':'Putar transisi');$('play-icon').setAttribute('d',next?'M7 6H10V18H7ZM14 6H17V18H14Z':'M9 6L18 12L9 18Z');if(next){direction=value>=.999?-1:1;requestFrame();}}
-  function move(next,immediate=false){if(!ready)return;setPlaying(false);target=Math.max(0,Math.min(1,next));if(immediate)value=target;requestFrame();}
+  function request(){if(!queued){queued=true;requestAnimationFrame(tick);}}
+  function tick(now){
+    queued=false;const dt=last?Math.max(0,(now-last)/1000):0;last=now;
+    if(playing){
+      phase+=direction*dt/stageDuration;
+      while(phase>segments||phase<0){
+        if(phase>segments){phase=2*segments-phase;direction=-1;}
+        if(phase<0){phase=-phase;direction=1;}
+      }
+      value=target=positionAtPhase(phase);
+    }else{
+      const step=dt/stageDuration;
+      if(directMove){
+        directElapsed+=dt;
+        const t=Math.min(1,directElapsed/stageDuration),eased=t*t*(3-2*t);
+        value=directStart+(target-directStart)*eased;
+        if(t===1){directMove=false;value=target;phase=targetPhase;}
+      }else{
+        phase=reduced?targetPhase:phase+Math.sign(targetPhase-phase)*Math.min(step,Math.abs(targetPhase-phase));
+        value=phase===targetPhase?target:positionAtPhase(phase);
+      }
+    }
+    render(value);ui();
+    if(playing||value!==target)request();else last=0;
+  }
+  function setPlaying(on){if(playing&&!on){target=value;targetPhase=phase;}playing=on;play.setAttribute('aria-pressed',String(on));play.setAttribute('aria-label',on?'Jeda transisi':'Putar transisi');$('play-icon').setAttribute('d',on?'M7 6H10V18H7ZM14 6H17V18H14Z':'M9 6L18 12L9 18Z');if(on){phase=phaseAtPosition(value);target=value;direction=value>=segments-.001?-1:1;request();}}
+  function move(n,immediate=false,direct=false){
+    if(!ready)return;setPlaying(false);target=Math.max(0,Math.min(segments,n));
+    targetPhase=phaseAtPosition(target);
+    if(immediate||reduced){directMove=false;value=target;phase=targetPhase;}
+    else if(direct){directMove=true;directStart=value;directElapsed=0;}
+    else{directMove=false;phase=phaseAtPosition(value);}
+    last=0;request();
+  }
   range.addEventListener('input',()=>move(Number(range.value)/1000,true));
-  $('start').addEventListener('click',()=>move(0));$('end').addEventListener('click',()=>move(1));
-  play.addEventListener('click',()=>{if(ready)setPlaying(!playing);});
-  $('garment').addEventListener('click',()=>move(target<.5?1:0));
+  function snapToNearestYear(){move(Math.round(Number(range.value)/1000));}
+  range.addEventListener('change',snapToNearestYear);
+  range.addEventListener('pointerup',()=>requestAnimationFrame(snapToNearestYear));
+  range.addEventListener('keyup',e=>{if(e.key.startsWith('Arrow'))snapToNearestYear();});
+  stops.forEach((b,i)=>b.addEventListener('click',()=>move(i,false,Math.abs(i-value)>1)));
+  play.addEventListener('click',()=>{if(ready){const wasPlaying=playing;setPlaying(!playing);if(wasPlaying)snapToNearestYear();}});
+  $('garment').addEventListener('click',()=>move((Math.floor(target+.01)+1)%seasons.length));
   document.addEventListener('keydown',e=>{
-    if(!ready||e.altKey||e.metaKey||e.ctrlKey)return;
-    if(e.code==='Space' && (e.target===range||e.target===document.body)){e.preventDefault();setPlaying(!playing);}
+    if(!ready||e.ctrlKey||e.altKey||e.metaKey)return;
+    if(e.code==='Space'&&(e.target===range||e.target===document.body)){e.preventDefault();setPlaying(!playing);}
     else if(e.key==='ArrowRight'||e.key==='ArrowLeft'){e.preventDefault();move(target+(e.key==='ArrowRight'?1:-1)*(e.shiftKey?.005:.05));}
-    else if((e.key==='Home'||e.key==='End') && e.target===range){e.preventDefault();move(e.key==='Home'?0:1);}
+    else if(e.target===range&&(e.key==='Home'||e.key==='End')){e.preventDefault();move(e.key==='Home'?0:segments);}
   });
-  document.addEventListener('visibilitychange',()=>{if(document.hidden)setPlaying(false);});
-  updateUI();
-  function fail(message){$('loading').textContent=message;canvas.style.opacity='0';$('fallback').hidden=false;range.disabled=true;play.disabled=true;$('start').disabled=true;$('end').disabled=true;ready=false;}
-  const gl=canvas.getContext('webgl',{alpha:true,antialias:true,premultipliedAlpha:false});
-  if(!gl){fail('Browser ini belum mendukung preview gerak.');return;}
-  const vertex=`
-    precision highp float;
-    attribute vec2 aUV;
-    uniform float uMorph;
-    varying vec2 vUV;
+  document.addEventListener('visibilitychange',()=>{if(document.hidden)setPlaying(false);});ui();
+  function fail(message){setPlaying(false);ready=false;$('loading').hidden=false;$('loading').textContent=message;$('fallback').hidden=false;canvas.style.opacity=0;[range,play,...stops].forEach(b=>b.disabled=true);}
+  const gl=canvas.getContext('webgl',{alpha:false,antialias:true});
+  if(!gl){fail('Preview gerak tidak tersedia. Foto jersey tetap dapat dilihat.');return;}
+
+  // Same landmark topology, individual positions for each garment. These landmarks
+  // move the neckline and garment boundaries; they do not apply a generic slim-fit.
+  const points=Array.from({length:6},()=>[]);
+  function add(a,b=a,c=b,d=c){[a,b,c,d,d,d].forEach((p,i)=>points[i].push(p));}
+  [[0,0],[.5,0],[1,0],[0,.5],[1,.5],[0,1],[.5,1],[1,1]].forEach(p=>add(p));
+  function symmetric(a,b=a,c=b,d=c){add(a,b,c,d);add([1-a[0],a[1]],[1-b[0],b[1]],[1-c[0],c[1]],[1-d[0],d[1]]);}
+  symmetric([.41,.105],[.404,.043],[.386,.031],[.414,.090]); // back neck endpoints
+  add([.5,.106],[.5,.051],[.5,.055],[.5,.052]);
+  symmetric([.376,.143],[.378,.080],[.357,.058],[.382,.126]); // outside neck/shoulder
+  symmetric([.392,.220],[.430,.156],[.398,.135],[.408,.170]); // collar side fronts
+  add([.5,.279],[.5,.190],[.5,.170],[.5,.192]); // lower collar centre
+  add([.5,.251],[.5,.165],[.5,.149],[.5,.174]); // inner collar
+  symmetric([.44,.227],[.452,.160],[.443,.163],[.448,.177]);
+  symmetric([.201,.201],[.199,.132],[.203,.119],[.177,.194]); // shoulder/yoke seam
+  symmetric([.008,.254],[.015,.328],[.019,.432],[.010,.276]); // outer cuff top
+  symmetric([.063,.447],[.151,.460],[.223,.479],[.118,.426]); // cuff inside bottom
+  symmetric([.202,.474],[.235,.384],[.225,.452],[.218,.402]); // armpit
+  symmetric([.201,.570],[.232,.570],[.231,.570],[.216,.570]);
+  symmetric([.198,.720],[.227,.720],[.221,.720],[.214,.720]);
+  symmetric([.191,.891],[.214,.941],[.208,.928],[.180,.910]); // hem corners
+  add([.5,.899],[.5,.956],[.5,.965],[.5,.960]);
+  // Shared neutral chest anchors keep crest and sponsor local, instead of pulling
+  // the whole torso towards the relocated adidas mark.
+  [[.30,.26],[.50,.26],[.70,.26],[.30,.34],[.50,.34],[.70,.34],
+   [.30,.49],[.50,.49],[.70,.49],[.5,.62],[.5,.78],[.5,.88]].forEach(p=>add(p));
+  // Later cuts taper slightly through the waist; the 2016 shirt uses a V-neck,
+  // while the 2020 shirt returns to a dark crew collar and a more athletic torso.
+  points[4].forEach((p,i)=>{
+    const factor=p[1]>.28&&p[1]<.88?.94:1;
+    points[4][i]=[.5+(p[0]-.5)*factor,p[1]];
+  });
+  points[5].forEach((p,i)=>{
+    const factor=p[1]>.28&&p[1]<.88?.90:1;
+    points[5][i]=[.5+(p[0]-.5)*factor,p[1]];
+  });
+  // V-neck landmarks for 2016/17; all other seasons keep their own neckline.
+  points[4][15]=[.5,.248];points[4][16]=[.5,.218];
+
+  // Bowyer-Watson triangulation on averaged landmarks. All three states reuse
+  // these triangles, with separate UV coordinates for their own photographs.
+  function triangulate(input){
+    const p=input.concat([[-10,-10],[10,-10],[0,10]]),n=input.length;
+    let triangles=[[n,n+1,n+2]];
+    function circle(tri,q){
+      const [a,b,c]=tri.map(i=>p[i]),d=2*(a[0]*(b[1]-c[1])+b[0]*(c[1]-a[1])+c[0]*(a[1]-b[1]));
+      if(Math.abs(d)<1e-12)return false;
+      const a2=a[0]**2+a[1]**2,b2=b[0]**2+b[1]**2,c2=c[0]**2+c[1]**2;
+      const x=(a2*(b[1]-c[1])+b2*(c[1]-a[1])+c2*(a[1]-b[1]))/d;
+      const y=(a2*(c[0]-b[0])+b2*(a[0]-c[0])+c2*(b[0]-a[0]))/d;
+      return (q[0]-x)**2+(q[1]-y)**2<=(a[0]-x)**2+(a[1]-y)**2+1e-10;
+    }
+    for(let i=0;i<n;i++){
+      const bad=triangles.filter(t=>circle(t,p[i])),edges=new Map();
+      bad.forEach(t=>[[t[0],t[1]],[t[1],t[2]],[t[2],t[0]]].forEach(e=>{const k=e.slice().sort((a,b)=>a-b).join(':');if(edges.has(k))edges.delete(k);else edges.set(k,e);}));
+      triangles=triangles.filter(t=>!bad.includes(t));edges.forEach(e=>triangles.push([e[0],e[1],i]));
+    }
+    return triangles.filter(t=>t.every(i=>i<n));
+  }
+  function triangulateMorph(from,to,constraints=[]){
+    const mean=from.map((p,i)=>[(p[0]+to[i][0])/2,(p[1]+to[i][1])/2]);
+    const area=(set,t)=>{const [a,b,c]=t.map(i=>set[i]);return (b[0]-a[0])*(c[1]-a[1])-(b[1]-a[1])*(c[0]-a[0]);};
+    const orient=t=>area(mean,t)<0?[t[1],t[0],t[2]]:t;
+    const samples=[0,.25,.5,.75,1].map(k=>from.map((p,i)=>[p[0]*(1-k)+to[i][0]*k,p[1]*(1-k)+to[i][1]*k]));
+    const cost=t=>samples.reduce((sum,set)=>sum+Math.max(0,-area(set,t)-1e-10),0);
+    const triangles=triangulate(mean).map(orient);
+    const key=(a,b)=>[a,b].sort((x,y)=>x-y).join(':');
+    const locked=new Set();
+    const edgesOf=()=>{const edges=new Map();triangles.forEach((tri,i)=>tri.forEach((a,j)=>{const k=key(a,tri[(j+1)%3]),list=edges.get(k)||[];list.push(i);edges.set(k,list);}));return edges;};
+    const crosses=(a,b,c,d)=>new Set([a,b,c,d]).size===4&&area(mean,[a,b,c])*area(mean,[a,b,d])<-1e-16&&area(mean,[c,d,a])*area(mean,[c,d,b])<-1e-16;
+    // Recover the silhouette as actual mesh edges, so outside white pixels
+    // cannot interpolate across an unconstrained triangle into the torso.
+    for(const [u,v] of constraints){
+      for(let pass=0;pass<500;pass++){
+        const edges=edgesOf();if(edges.has(key(u,v)))break;
+        let changed=false;
+        for(const [edge,pair] of edges){
+          if(pair.length!==2||locked.has(edge))continue;
+          const [a,b]=edge.split(':').map(Number);if(!crosses(u,v,a,b))continue;
+          const [i,j]=pair,c=triangles[i].find(x=>x!==a&&x!==b),d=triangles[j].find(x=>x!==a&&x!==b);
+          if(!crosses(a,b,c,d))continue;
+          triangles[i]=orient([c,d,a]);triangles[j]=orient([d,c,b]);changed=true;break;
+        }
+        if(!changed)break;
+      }
+      locked.add(key(u,v));
+    }
+    // Pick a diagonal valid in both photographs, rather than only at the mean.
+    for(let pass=0;pass<100;pass++){
+      const edges=new Map();let changed=false;
+      triangles.forEach((tri,i)=>tri.forEach((a,j)=>{const b=tri[(j+1)%3],key=[a,b].sort((x,y)=>x-y).join(':');const list=edges.get(key)||[];list.push(i);edges.set(key,list);}));
+      for(const [key,pair] of edges){
+        if(pair.length!==2||locked.has(key))continue;
+        const [i,j]=pair,old=cost(triangles[i])+cost(triangles[j]);if(old<1e-10)continue;
+        const [a,b]=key.split(':').map(Number),c=triangles[i].find(v=>v!==a&&v!==b),d=triangles[j].find(v=>v!==a&&v!==b);
+        if(c===undefined||d===undefined||c===d)continue;
+        if(area(mean,[c,d,a])*area(mean,[c,d,b])>=0)continue;
+        const x=orient([c,d,a]),y=orient([d,c,b]);
+        if(cost(x)+cost(y)<old-1e-10){triangles[i]=x;triangles[j]=y;changed=true;break;}
+      }
+      if(!changed)break;
+    }
+    return triangles;
+  }
+  points[0][35]=[.5,.31];
+  const mean=points[0].map((p,i)=>points.reduce((sum,set)=>[sum[0]+set[i][0]/points.length,sum[1]+set[i][1]/points.length],[0,0]));
+  const triangles=triangulate(mean);
+  // Preserve the two approved segments verbatim. Later pairs use measured
+  // per-photo landmarks and their own triangulations, not copied 2011 UVs.
+  const modern=window.chelseaMotion;
+  const buildGeometry=()=>seasons.slice(1).map((_,segment)=>{
+    // Cuff/underarm corners already constrain this short concave edge; extra
+    // collinear midpoints there can invert when a low sleeve opens upward.
+    const usable=set=>set.filter((_,i)=>![38,39,42,43].includes(i));
+    const from=segment<2?points[segment]:usable(modern[segment-2]);
+    const to=segment<2?points[segment+1]:usable(modern[segment-1]);
+    let constraints=[];
+    if(segment>=2){
+      const source=modern[segment-2],ids=source.map((_,i)=>i).filter(i=>![38,39,42,43].includes(i));
+      constraints=source.contours.flatMap(path=>{const kept=path.filter(i=>ids.includes(i));return kept.slice(1).map((id,j)=>[ids.indexOf(kept[j]),ids.indexOf(id)]);});
+    }
+    const tris=segment<2?triangles:triangulateMorph(from,to,constraints);
+    return {count:tris.length*3,data:[from,to].map(set=>new Float32Array(tris.flatMap(tri=>tri.flatMap(i=>set[i]))))};
+  });
+  const vertex=`precision highp float;
+    attribute vec2 aFrom,aTo;uniform float uT,uZoom;
+    varying vec2 vFrom,vTo;
+    void main(){vFrom=aFrom;vTo=aTo;vec2 p=mix(aFrom,aTo,uT);p=(p-.5)*.95+.5;p=(p-vec2(.5,.30))*uZoom+vec2(.5,.30);gl_Position=vec4(p.x*2.-1.,1.-p.y*2.,0.,1.);}`;
+  const brandingBoxes=[
+    [[.336,.395,.321,.084],[.336,.326,.136,.031],[.550,.278,.108,.104]],
+    [[.345,.325,.323,.140],[.320,.245,.107,.037],[.584,.218,.096,.092]],
+    [[.330,.355,.326,.140],[.460,.203,.073,.057],[.570,.250,.102,.106]],
+    // The 2006/07 and 2011/12 shirts use the same Chelsea badge. Keep its crop
+    // registration fixed so the badge does not scale or drift during this morph.
+    [[.315,.365,.370,.125],[.325,.260,.115,.075],[.570,.250,.102,.106]]
+    ,[[.302,.354,.396,.132],[.329,.258,.100,.058],[.575,.215,.104,.104]]
+    ,[[.390,.345,.220,.265],[.315,.260,.104,.050],[.575,.215,.104,.104]]
+  ];
+  const modernBoxes=[
+    [[.331,.358,.325,.074],[.462,.208,.070,.049],[.572,.253,.095,.098],[.460,.430,.185,.060]],
+    [[.345,.357,.315,.065],[.360,.259,.065,.047],[.565,.239,.087,.087],[.500,.424,.001,.001]],
+    [[.317,.347,.370,.090],[.331,.242,.076,.054],[.582,.223,.097,.097],[.500,.440,.001,.001]],
+    [[.403,.351,.196,.252],[.310,.255,.103,.042],[.579,.224,.103,.103],[.500,.610,.001,.001]],
+    [[.490,.360,.020,.020],[.335,.307,.105,.043],[.585,.278,.074,.088],[.500,.610,.001,.001]]
+  ];
+  const final2020Boxes=[modernBoxes[3][0],modernBoxes[3][1],[.610,.248,.045,.055],modernBoxes[3][2]];
+  const fragment=`precision highp float;
+    uniform sampler2D uFrom,uTo,uOriginalA,uOriginalB,uArtA,uArtB;
+    uniform vec4 uBoxA[4],uBoxB[4];uniform float uT,uModern,uFinal;
+    varying vec2 vFrom,vTo;
     void main(){
-      vUV=aUV;vec2 p=aUV;float t=uMorph;
-      float c=.5;float dx=p.x-c;float ax=abs(dx);
-      // The same cloth vertices move; texture coordinates never switch images.
-      float r=.128;
-      float n=clamp(ax/r,0.0,1.0);
-      float roundEdge=.062+.100*sqrt(max(0.0,1.0-n*n));
-      float veeEdge=.062+.190*(1.0-n);
-      float neckFalloff=exp(-pow((p.y-roundEdge)/.066,2.0));
-      float neckMask=1.0-smoothstep(.122,.149,ax);
-      p.y+=(veeEdge-roundEdge)*neckFalloff*neckMask*t;
-      // Tailored waist and a shorter hem, away from the chest crest.
-      float waist=smoothstep(.42,.80,aUV.y);
-      p.x-=dx*.135*waist*t;
-      p.y-=.025*smoothstep(.70,.95,aUV.y)*t;
-      // Sleeve endpoints travel inward and up, shoulders stay anchored.
-      float sleeve=smoothstep(.245,.44,ax)*(1.0-smoothstep(.43,.53,aUV.y));
-      p.x-=sign(dx)*.034*sleeve*t;
-      p.y-=.026*sleeve*t;
-      // Slightly restrained composition keeps every endpoint inside the stage.
-      p=(p-.5)*.96+.5;
-      gl_Position=vec4(p.x*2.0-1.0,1.0-p.y*2.0,0.0,1.0);
+      if(uT<.0001){gl_FragColor=texture2D(uOriginalA,vFrom);return;}
+      if(uT>.9999){gl_FragColor=texture2D(uOriginalB,vTo);return;}
+      float t=smoothstep(0.,1.,uT);
+      vec3 col=mix(texture2D(uFrom,vFrom).rgb,texture2D(uTo,vTo).rgb,t);
+      vec2 pos=mix(vFrom,vTo,uT);
+      for(int i=0;i<4;i++){
+        if(i==3&&uModern<.5)continue;
+        vec4 box=mix(uBoxA[i],uBoxB[i],uT);
+        // Carry the swoosh as one rigid mark, with uniform scale. The two
+        // photograph crops have different padding, not different logo shapes.
+        if(uFinal>.5&&i==1){
+          vec2 center=box.xy+box.zw*.5;
+          box.w=box.z*uBoxA[1].w/uBoxA[1].z;
+          box.xy=center-box.zw*.5;
+        }
+        float slot=float(i);
+        if(uFinal>.5&&i==2){box=mix(uBoxA[3],uBoxB[3],uT);slot=3.;}
+        if(uFinal>.5&&i==3){box=mix(uBoxA[2],uBoxB[2],uT);slot=2.;}
+        float ornament=1.-smoothstep(0.,.72,uT);
+        if(uFinal>.5&&i==2){
+          vec4 lion=mix(uBoxA[2],uBoxB[2],uT);
+          vec2 center=lion.xy+lion.zw*.5;
+          box.zw=uBoxA[3].zw*max(.001,ornament);
+          box.xy=center-box.zw*.5;
+        }
+        vec2 q=(pos-box.xy)/box.zw;
+        if(q.x>0.&&q.x<1.&&q.y>0.&&q.y<1.){
+          vec2 atlas=vec2((slot+q.x)/mix(3.,4.,uModern),q.y);
+          vec4 a=texture2D(uArtA,atlas),b=texture2D(uArtB,atlas);
+          float expansion=uModern>.5?(i==2||i==3?0.:.015):.075;
+          float field=mix(a.a,b.a,t)+sin(t*3.14159265)*expansion;
+          float ink=smoothstep(.489,.511,field);
+          if(uFinal>.5&&i==1){field=mix(a.a,b.a,t);ink=smoothstep(.489,.511,field);}
+          if(uFinal>.5&&i==2){ink=smoothstep(.489,.511,a.a)*ornament;b=a;}
+          col=mix(col,mix(a.rgb,b.rgb,t),ink);
+        }
+      }
+      // Recover original embroidery and print texture smoothly near the stops.
+      float start=1.-smoothstep(0.,.07,uT),end=smoothstep(.93,1.,uT);
+      col=mix(col,texture2D(uOriginalA,vFrom).rgb,start);
+      col=mix(col,texture2D(uOriginalB,vTo).rgb,end);
+      gl_FragColor=vec4(col,1.);
     }`;
-  const fragment=`precision mediump float;uniform sampler2D uImage;varying vec2 vUV;void main(){vec4 cloth=texture2D(uImage,vUV);if(cloth.a<.025)discard;gl_FragColor=cloth;}`;
-  function shader(type,source){const s=gl.createShader(type);gl.shaderSource(s,source);gl.compileShader(s);if(!gl.getShaderParameter(s,gl.COMPILE_STATUS))throw Error(gl.getShaderInfoLog(s));return s;}
+  function shader(type,code){const s=gl.createShader(type);gl.shaderSource(s,code);gl.compileShader(s);if(!gl.getShaderParameter(s,gl.COMPILE_STATUS))throw new Error(gl.getShaderInfoLog(s));return s;}
   try{
     const program=gl.createProgram();gl.attachShader(program,shader(gl.VERTEX_SHADER,vertex));gl.attachShader(program,shader(gl.FRAGMENT_SHADER,fragment));gl.linkProgram(program);
-    if(!gl.getProgramParameter(program,gl.LINK_STATUS))throw Error(gl.getProgramInfoLog(program));gl.useProgram(program);
-    const N=160,uv=[],indices=[];
-    for(let y=0;y<=N;y++)for(let x=0;x<=N;x++)uv.push(x/N,y/N);
-    for(let y=0;y<N;y++)for(let x=0;x<N;x++){const a=y*(N+1)+x,b=a+1,c=a+N+1,d=c+1;indices.push(a,c,b,b,c,d);}
-    const vb=gl.createBuffer();gl.bindBuffer(gl.ARRAY_BUFFER,vb);gl.bufferData(gl.ARRAY_BUFFER,new Float32Array(uv),gl.STATIC_DRAW);
-    const loc=gl.getAttribLocation(program,'aUV');gl.enableVertexAttribArray(loc);gl.vertexAttribPointer(loc,2,gl.FLOAT,false,0,0);
-    const ib=gl.createBuffer();gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER,ib);gl.bufferData(gl.ELEMENT_ARRAY_BUFFER,new Uint16Array(indices),gl.STATIC_DRAW);
-    const tex=gl.createTexture();gl.bindTexture(gl.TEXTURE_2D,tex);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.LINEAR);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.LINEAR);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_S,gl.CLAMP_TO_EDGE);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_T,gl.CLAMP_TO_EDGE);
-    gl.uniform1i(gl.getUniformLocation(program,'uImage'),0);const morphLoc=gl.getUniformLocation(program,'uMorph');
-    const img=new Image();img.onload=()=>{
-      gl.bindTexture(gl.TEXTURE_2D,tex);gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,gl.RGBA,gl.UNSIGNED_BYTE,img);
-      render=(amount)=>{const size=Math.round(canvas.clientWidth*Math.min(devicePixelRatio,2));if(canvas.width!==size||canvas.height!==size){canvas.width=size;canvas.height=size;gl.viewport(0,0,size,size);}gl.clearColor(0,0,0,0);gl.clear(gl.COLOR_BUFFER_BIT);gl.uniform1f(morphLoc,amount);gl.drawElements(gl.TRIANGLES,indices.length,gl.UNSIGNED_SHORT,0);};
-      ready=true;$('loading').hidden=true;$('fallback').hidden=true;canvas.style.opacity='1';requestFrame();new ResizeObserver(requestFrame).observe(canvas);
-    };img.onerror=()=>fail('Aset jersey gagal dimuat. Muat ulang halaman untuk mencoba lagi.');img.src=$('fallback').src;
-    canvas.addEventListener('webglcontextlost',e=>{e.preventDefault();setPlaying(false);fail('Preview terhenti. Muat ulang halaman untuk melanjutkan.');});
+    if(!gl.getProgramParameter(program,gl.LINK_STATUS))throw new Error(gl.getProgramInfoLog(program));gl.useProgram(program);
+    const tLoc=gl.getUniformLocation(program,'uT'),zLoc=gl.getUniformLocation(program,'uZoom');
+    const buffers=['aFrom','aTo'].map(name=>({buffer:gl.createBuffer(),location:gl.getAttribLocation(program,name)}));
+    gl.uniform1i(gl.getUniformLocation(program,'uFrom'),0);gl.uniform1i(gl.getUniformLocation(program,'uTo'),1);
+    const load=src=>new Promise((resolve,reject)=>{const image=new Image();image.onload=()=>resolve(image);image.onerror=reject;image.src=src;});
+    Promise.all(seasons.map(s=>load(s.src))).then(images=>{
+      window.registerChelseaSilhouettes(images.slice(2));
+      const geometry=buildGeometry();
+      const layers=images.slice(0,6).map((image,i)=>window.buildBranding(image,brandingBoxes[i]));
+      const modernLayers=images.slice(2).map((image,i)=>window.buildBranding(image,modernBoxes[i],{lightPrintOnly:true,hiddenSlots:i===0?[]:i===4?[0,3]:[3],lionCrest:i===4,preserveNikeInk:i===4}));
+      const final2020Layer=window.buildBranding(images[5],final2020Boxes,{lightPrintOnly:true,crestSplit:true});
+      // Same marks travel as a single registered object. Only changed artwork
+      // (Samsung -> Yokohama -> Three, adidas -> Nike) needs contour morphing.
+      const tile=(layer,k)=>layer.atlas.getContext('2d').getImageData(k*256,0,256,256);
+      const badge=tile(modernLayers[2],2),adidas=tile(modernLayers[2],1),samsung=tile(modernLayers[1],0);
+      modernLayers.forEach((layer,i)=>{const ctx=layer.atlas.getContext('2d');if(i<4)ctx.putImageData(badge,512,0);if(i<3)ctx.putImageData(adidas,256,0);if(i<2)ctx.putImageData(samsung,0,0);});
+      // The Chelsea badge is the same design in 2006/07 and 2011/12. Reuse
+      // one registered crest sprite for that segment instead of blending two
+      // independently reconstructed badge interiors into a doubled emblem.
+      const crestTile=layers[2].atlas.getContext('2d').getImageData(2*256,0,256,256);
+      layers[3].atlas.getContext('2d').putImageData(crestTile,2*256,0);
+      const upload=image=>{
+        const tex=gl.createTexture();gl.bindTexture(gl.TEXTURE_2D,tex);
+        gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.LINEAR);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.LINEAR);
+        gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_S,gl.CLAMP_TO_EDGE);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_T,gl.CLAMP_TO_EDGE);
+        gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,gl.RGBA,gl.UNSIGNED_BYTE,image);return tex;
+      };
+      const textures=layers.map(l=>upload(l.clean)),originals=images.map(upload),art=layers.map(l=>upload(l.atlas));
+      const modernTextures=modernLayers.map(l=>upload(l.clean)),modernArt=modernLayers.map(l=>upload(l.atlas));
+      const final2020Texture=upload(final2020Layer.clean),final2020Art=upload(final2020Layer.atlas);
+      for(const [name,unit] of [['uOriginalA',2],['uOriginalB',3],['uArtA',4],['uArtB',5]])gl.uniform1i(gl.getUniformLocation(program,name),unit);
+      const boxA=gl.getUniformLocation(program,'uBoxA[0]'),boxB=gl.getUniformLocation(program,'uBoxB[0]');
+      const modernLoc=gl.getUniformLocation(program,'uModern'),finalLoc=gl.getUniformLocation(program,'uFinal');let current=-1;
+      const maxSize=Math.min(gl.getParameter(gl.MAX_RENDERBUFFER_SIZE),gl.getParameter(gl.MAX_TEXTURE_SIZE),3072);
+      render=(position)=>{
+        const segment=Math.min(seasons.length-2,Math.floor(position)),t=position-segment;
+        const mesh=geometry[segment];
+        if(current!==segment){
+          const later=segment>=2,index=later?segment-2:segment,cloth=later?modernTextures:textures,ink=later?modernArt:art,boxes=later?modernBoxes:brandingBoxes;
+          buffers.forEach((b,j)=>{gl.bindBuffer(gl.ARRAY_BUFFER,b.buffer);gl.bufferData(gl.ARRAY_BUFFER,mesh.data[j],gl.STATIC_DRAW);gl.enableVertexAttribArray(b.location);gl.vertexAttribPointer(b.location,2,gl.FLOAT,false,0,0);gl.activeTexture(gl.TEXTURE0+j);gl.bindTexture(gl.TEXTURE_2D,cloth[index+j]);});
+          if(segment===5){gl.activeTexture(gl.TEXTURE0);gl.bindTexture(gl.TEXTURE_2D,final2020Texture);}
+          [originals[segment],originals[segment+1],segment===5?final2020Art:ink[index],ink[index+1]].forEach((tex,i)=>{gl.activeTexture(gl.TEXTURE2+i);gl.bindTexture(gl.TEXTURE_2D,tex);});
+          gl.uniform4fv(boxA,(segment===5?final2020Boxes:boxes[index]).flat());gl.uniform4fv(boxB,boxes[index+1].flat());gl.uniform1f(modernLoc,later?1:0);gl.uniform1f(finalLoc,segment===5?1:0);current=segment;
+        }
+        // Zoom is performed by the vertex shader, never by stretching the canvas.
+        const size=Math.min(maxSize,Math.ceil(canvas.clientWidth*Math.min(devicePixelRatio,3)));
+        if(canvas.width!==size||canvas.height!==size){canvas.width=size;canvas.height=size;gl.viewport(0,0,size,size);}
+        gl.clearColor(1,1,1,1);gl.clear(gl.COLOR_BUFFER_BIT);gl.uniform1f(tLoc,t);gl.uniform1f(zLoc,1.);gl.drawArrays(gl.TRIANGLES,0,mesh.count);
+      };
+      ready=true;$('loading').hidden=true;$('fallback').hidden=true;canvas.style.opacity=1;request();new ResizeObserver(request).observe(canvas);
+    }).catch(error=>{console.error(error);fail('Aset gagal dimuat. Muat ulang untuk mencoba lagi.');});
+    canvas.addEventListener('webglcontextlost',e=>{e.preventDefault();fail('Preview terhenti. Muat ulang untuk melanjutkan.');});
   }catch(error){console.error(error);fail('Preview gerak tidak tersedia di browser ini.');}
 })();

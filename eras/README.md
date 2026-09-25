@@ -1,9 +1,0 @@
-# Chelsea home jersey timeline — 1998/99 → 2026/27
-
-Buka http://127.0.0.1:4173/eras/. Kontrol: slider, klik musim atau jersey, play/pause, panah kiri/kanan, Shift+panah untuk langkah halus, Home/End saat slider fokus.
-
-Tujuh gambar rekonstruksi AI ditampilkan pada mesh 2.5D dengan landmark terpisah pada kerah, bahu, cuff, ketiak, badan, dan hem. Kontur sponsor, maker, dan crest diambil dari masing-masing aset lalu diinterpolasi bersama posisi cetaknya. Karena bentuk huruf/logo berbeda jauh, tampilan kontur pada titik tengah masih eksperimental. Ini bukan model 3D dan tidak dapat diputar untuk melihat bagian belakang.
-
-Aset 1998/99 v2 memakai konstruksi raglan dan badan lebih longgar. Aset 2004/05 memakai lengan set-in serta kerah V. Aset 2006/07 memakai panel Teamgeist, kerah membulat, Adidas tengah, dan Samsung mobile. Aset 2011/12 menampilkan hoop tonal horizontal, panel bahu putih dengan tiga garis Adidas biru, kerah crew-neck biru dengan list putih, panel samping, logo Adidas di dada kanan, crest di dada kiri, Samsung di tengah, serta detail ClimaCool dan pin hologram di dekat hem.
-
-Aset berada di `assets/`. Jersey 2016/17 adalah Adidas (musim terakhir Adidas); pada sampel ini motif singa dibuat renggang dan sedikit lebih gelap, hanya di badan depan, sementara pundak dan lengan polos. Jersey 2020/21 adalah Nike dengan logo Three berkontur putih dan tanpa sponsor lengan sesuai pilihan visual sampel ini. Jersey 2026/27 memakai rekonstruksi Bright Blue dengan kerah polo, swoosh dan lion crest emas, serta grafis jacquard crest bulat penuh dan motif geometris pada panel badan depan, dengan lengan polos serta sambungan panel diagonal dari bahu menuju sisi badan. Transisi dari 2020/21 memisahkan singa dari lingkaran badge lama agar bentuk crest tidak bertumpuk di tengah gerak. Referensi dan batas akurasi tercatat di `sources.html`. Tidak ada library atau request eksternal saat runtime.

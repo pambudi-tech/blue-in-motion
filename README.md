@@ -1,23 +1,9 @@
-# Blue, in motion — studi morph jersey
+# Chelsea home jersey timeline — 1998/99 → 2026/27
 
-Sampel lokal dua bentuk jersey untuk diskusi sebelum produksi timeline Chelsea.
+Buka http://127.0.0.1:4173/. Kontrol: slider, klik musim atau jersey, play/pause, panah kiri/kanan, Shift+panah untuk langkah halus, Home/End saat slider fokus.
 
-## Jalankan
+Tujuh gambar rekonstruksi AI ditampilkan pada mesh 2.5D dengan landmark terpisah pada kerah, bahu, cuff, ketiak, badan, dan hem. Kontur sponsor, maker, dan crest diambil dari masing-masing aset lalu diinterpolasi bersama posisi cetaknya. Karena bentuk huruf/logo berbeda jauh, tampilan kontur pada titik tengah masih eksperimental. Ini bukan model 3D dan tidak dapat diputar untuk melihat bagian belakang.
 
-Jalankan `python3 -m http.server 4173` dari folder ini, lalu buka http://localhost:4173.
+Aset 1998/99 v2 memakai konstruksi raglan dan badan lebih longgar. Aset 2004/05 memakai lengan set-in serta kerah V. Aset 2006/07 memakai panel Teamgeist, kerah membulat, Adidas tengah, dan Samsung mobile. Aset 2011/12 menampilkan hoop tonal horizontal, panel bahu putih dengan tiga garis Adidas biru, kerah crew-neck biru dengan list putih, panel samping, logo Adidas di dada kanan, crest di dada kiri, Samsung di tengah, serta detail ClimaCool dan pin hologram di dekat hem.
 
-## Kontrol
-
-- Geser timeline untuk mengubah kerah bulat menjadi kerah V, menyempitkan badan, dan memperpendek lengan.
-- Klik Studi A / Studi B atau jersey untuk berpindah bentuk.
-- Play menjalankan transisi bolak-balik, 4,5 detik setiap arah.
-- Panah kiri/kanan mengubah posisi; Shift memberi langkah lebih kecil.
-- Home / End saat slider fokus menuju ujung. Space pada slider menjalankan playback.
-
-## Ruang lingkup dan batas
-
-Tekstur adalah gambar konsep yang dibuat dengan AI, bukan dokumentasi jersey Chelsea dari suatu musim. Crest dan konstruksi belum diverifikasi historis.
-
-Satu tekstur pada satu mesh WebGL: koordinat vertex diinterpolasi dengan slider, bukan crossfade dua gambar. Kerah, lengan, dan badan berubah secara kontinu. Area crest dipertahankan. Ini 2.5D dari depan, bukan model pakaian 3D penuh; lipatan dan pencahayaan masih melekat pada foto. Kerah V yang dihasilkan merupakan deformasi kain foto dan belum setara konstruksi kerah V sungguhan. Dua bentuk ini memvalidasi mekanisme, bukan dua jersey final.
-
-Semua aset lokal, tanpa CDN, paket, analytics, atau koneksi eksternal saat digunakan. Jika WebGL tidak tersedia, foto statis ditampilkan dan kontrol dinonaktifkan.
+Aset berada di `assets/`. Jersey 2016/17 adalah Adidas (musim terakhir Adidas); pada sampel ini motif singa dibuat renggang dan sedikit lebih gelap, hanya di badan depan, sementara pundak dan lengan polos. Jersey 2020/21 adalah Nike dengan logo Three berkontur putih dan tanpa sponsor lengan sesuai pilihan visual sampel ini. Jersey 2026/27 memakai rekonstruksi Bright Blue dengan kerah polo, swoosh dan lion crest emas, serta grafis jacquard crest bulat penuh dan motif geometris pada panel badan depan, dengan lengan polos serta sambungan panel diagonal dari bahu menuju sisi badan. Transisi dari 2020/21 memisahkan singa dari lingkaran badge lama agar bentuk crest tidak bertumpuk di tengah gerak. Referensi dan batas akurasi tercatat di `sources.html`. Tidak ada library atau request eksternal saat runtime.
